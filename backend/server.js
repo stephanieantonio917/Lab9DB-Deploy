@@ -1,14 +1,16 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { Puppy, sequelize } = require("./puppy"); // ✅ Import both Puppy model & Sequelize instance
+const { Puppy, sequelize } = require("./puppy"); // Import Puppy model & Sequelize instance
+const sendNewPuppySMS = require("./sendgridClient"); // Twilio SMS function
+const sendNewPuppyEmail = require("./sendgridClient");
 
-// ✅ Create Express App
+// Create Express App
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Test Database Connection
+// Test Database Connection
 (async () => {
   try {
     await sequelize.authenticate();
@@ -18,12 +20,12 @@ app.use(express.json());
   }
 })();
 
-// ✅ Test Route to Check If Server is Running
+// Test Route
 app.get("/", (req, res) => {
   res.send("✅ Express server is running!");
 });
 
-// ✅ Get all puppies
+// Get all puppies
 app.get("/puppies", async (req, res) => {
   try {
     const puppies = await Puppy.findAll();
@@ -33,7 +35,7 @@ app.get("/puppies", async (req, res) => {
   }
 });
 
-// ✅ Get a single puppy by ID
+// Get a single puppy by ID
 app.get("/puppies/:id", async (req, res) => {
   const puppyId = parseInt(req.params.id, 10);
   if (isNaN(puppyId) || puppyId <= 0) {
@@ -50,17 +52,27 @@ app.get("/puppies/:id", async (req, res) => {
   }
 });
 
-// ✅ Add a new puppy
+//////////////////////////////////
+
+// ✅ Add a new puppy (with Twilio alert)
+
+
 app.post("/puppies", async (req, res) => {
   try {
     const newPuppy = await Puppy.create(req.body);
+    const puppyData = newPuppy.toJSON(); // ✅ Ensure all values are accessible
+
+    await sendNewPuppyEmail(puppyData);  // 👈 Pass plain object instead of Sequelize instance
     res.status(201).json(newPuppy);
   } catch (error) {
+    console.error("❌ Error adding puppy:", error);
     res.status(400).json({ error: "Error adding puppy" });
   }
 });
 
-// ✅ Update a puppy by ID
+
+
+// Update a puppy by ID
 app.put("/puppies/:id", async (req, res) => {
   const puppyId = parseInt(req.params.id, 10);
   if (isNaN(puppyId) || puppyId <= 0) {
@@ -77,7 +89,7 @@ app.put("/puppies/:id", async (req, res) => {
   }
 });
 
-// ✅ Delete a puppy by ID
+// Delete a puppy by ID
 app.delete("/puppies/:id", async (req, res) => {
   const puppyId = parseInt(req.params.id, 10);
   if (isNaN(puppyId) || puppyId <= 0) {
@@ -94,7 +106,18 @@ app.delete("/puppies/:id", async (req, res) => {
   }
 });
 
-// ✅ Start Server
+//// check 
+app.post("/sendgrid-events", express.json(), (req, res) => {
+  const events = req.body;
+  console.log("📬 SendGrid Webhook Triggered:");
+  events.forEach(event => {
+    console.log(`✉️ ${event.email} - ${event.event}`);
+  });
+  res.sendStatus(200);
+});
+
+
+// Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

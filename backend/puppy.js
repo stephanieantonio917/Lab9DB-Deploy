@@ -17,6 +17,8 @@ const sequelize = new Sequelize(
   }
 );
 
+
+
 // Define the Puppy model that maps to the existing 'puppies' table.
 const Puppy = sequelize.define("Puppy", {
   pet_id: {
